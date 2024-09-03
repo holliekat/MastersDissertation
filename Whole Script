@@ -1,0 +1,82 @@
+import pandas as pd
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+#Initialize the VADER sentiment analyzer
+analyzer = SentimentIntensityAnalyzer()
+
+#Load the CSV file into a Dataframe with encoding handling 
+input_file = 'data.csv'
+
+try:
+    df = pd.read_csv(input_file, header=None, encoding='utf-8')
+except UnicodeDecodeError:
+    df = pd.read_csv(input_file, header=None, encoding='ISO-8859-1')
+
+# Initialize lists for storing results
+row_results_list = []
+column_averages = []
+
+# Iterate through each column
+for col_index in df.columns:
+    post_label = f'post {col_index + 1}'
+    # Lists to store individual cell scores for calculating column averages
+    pos_scores = []
+    neu_scores = []
+    neg_scores = []
+    compound_scores = []
+    
+    # Iterate through each cell in the column
+    for cell in df[col_index]:
+        if pd.isna(cell):
+            # Skip empty cells
+            continue
+        
+        # Run VADER sentiment analysis
+        sentiment = analyzer.polarity_scores(str(cell))
+        
+        # Store individual cell scores
+        row_results_list.append({
+            'Post': post_label,
+            'Text': cell,
+            'pos': sentiment['pos'],
+            'neu': sentiment['neu'],
+            'neg': sentiment['neg'],
+            'compound': sentiment['compound']
+        })
+        
+        # Add scores to the list for averaging
+        pos_scores.append(sentiment['pos'])
+        neu_scores.append(sentiment['neu'])
+        neg_scores.append(sentiment['neg'])
+        compound_scores.append(sentiment['compound'])
+    
+    # Calculate column-level averages and store them
+    if pos_scores:  # Ensure the list is not empty
+        column_averages.append({
+            'Post': post_label,
+            'avg_pos': sum(pos_scores) / len(pos_scores),
+            'avg_neu': sum(neu_scores) / len(neu_scores),
+            'avg_neg': sum(neg_scores) / len(neg_scores),
+            'avg_compound': sum(compound_scores) / len(compound_scores)
+        })
+
+# Convert the row results list to a DataFrame
+row_results_df = pd.DataFrame(row_results_list)
+
+# Convert column averages to a DataFrame
+column_averages_df = pd.DataFrame(column_averages)
+
+# Save the cell-level results to a CSV file with encoding handling
+row_output_file = 'results_rows.csv'
+column_output_file = 'results_columns.csv'
+
+try:
+    row_results_df.to_csv(row_output_file, index=False, encoding='utf-8')
+    column_averages_df.to_csv(column_output_file, index=False, encoding='utf-8')
+except UnicodeEncodeError:
+    # Fallback in case utf-8 encoding fails
+    row_results_df.to_csv(row_output_file, index=False, encoding='ISO-8859-1')
+    column_averages_df.to_csv(column_output_file, index=False, encoding='ISO-8859-1')
+
+print(f'Cell-level sentiment analysis results saved to {row_output_file}')
+print(f'Column-level average sentiment analysis results saved to {column_output_file}')
